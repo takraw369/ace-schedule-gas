@@ -30,6 +30,8 @@ function onOpen() {
     .createMenu('ACE Schedule')
     .addItem('初期セットアップ', 'setupAll')
     .addSeparator()
+    .addItem('🔥Daily シート生成', 'generateDailySheet')
+    .addSeparator()
     .addItem('計算シート再生成', 'setupCalcSheet')
     .addItem('ダッシュボード更新', 'setupDashboard')
     .addSeparator()
