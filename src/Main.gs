@@ -14,6 +14,7 @@ function setupAll() {
     setupInputSheet();
     setupCalcSheet();
     setupDashboard();
+    setupFinanceCompass();
     Logger.log('=== セットアップ完了 ===');
     SpreadsheetApp.getUi().alert('セットアップ完了！\n各シートを確認してください。');
   } catch (e) {
@@ -32,6 +33,7 @@ function onOpen() {
     .addSeparator()
     .addItem('計算シート再生成', 'setupCalcSheet')
     .addItem('ダッシュボード更新', 'setupDashboard')
+    .addItem('財務コンパス作成', 'setupFinanceCompass')
     .addSeparator()
     .addItem('GitHubへ同期', 'exportStateToGit')
     .addItem('バックアップ作成', 'backupSheet')
