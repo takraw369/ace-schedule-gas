@@ -1,20 +1,18 @@
 /**
  * Main.gs - エントリポイント
- * ACE Schedule System v1
+ * ACE Schedule System
  */
 
-/**
- * スプレッドシートを初期化する（初回セットアップ）
- */
 function setupAll() {
   try {
     Logger.log('=== ACE Schedule セットアップ開始 ===');
     backupSheet();
-    setupProviderMaster();
-    setupInputSheet();
-    setupCalcSheet();
-    setupDashboard();
-    setupFinanceCompass();
+    setupMasterConfig();   // 5_Master_Config（プロバイダ設定のソース）
+    setupProviderMaster(); // プロバイダマスタ（5_Master_Config のビュー）
+    setupInputSheet();     // 4_Income_Log
+    setupCalcSheet();      // 計算
+    setupDashboard();      // DEPRECATED: no-op
+    setupFinanceCompass(); // 💰財務コンパス
     Logger.log('=== セットアップ完了 ===');
     SpreadsheetApp.getUi().alert('セットアップ完了！\n各シートを確認してください。');
   } catch (e) {
@@ -24,13 +22,13 @@ function setupAll() {
 }
 
 /**
- * 財務コンパスの手入力を Script Properties に自動バックアップ
+ * 手入力データを Script Properties に自動バックアップ
  */
 function onEdit(e) {
   try {
     var sheetName = e.range.getSheet().getName();
-    if (sheetName === COMPASS_SHEET_NAME)  compassOnEdit(e);
-    if (sheetName === PROVIDER_SHEET_NAME) providerOnEdit(e);
+    if (sheetName === COMPASS_SHEET_NAME)   compassOnEdit(e);
+    if (sheetName === SHEET_MASTER_CONFIG)  masterConfigOnEdit(e);
   } catch (err) {
     Logger.log('onEdit error: ' + err.message);
   }
@@ -45,8 +43,8 @@ function onOpen() {
     .addItem('初期セットアップ', 'setupAll')
     .addSeparator()
     .addItem('計算シート再生成', 'setupCalcSheet')
-    .addItem('ダッシュボード更新', 'setupDashboard')
-    .addItem('財務コンパス作成', 'setupFinanceCompass')
+    .addItem('財務コンパス更新', 'setupFinanceCompass')
+    .addItem('マスター設定更新', 'setupMasterConfig')
     .addSeparator()
     .addItem('GitHubへ同期', 'exportStateToGit')
     .addItem('バックアップ作成', 'backupSheet')
@@ -70,12 +68,10 @@ function dailySync() {
  * トリガーをセットアップする（初回1回だけ実行）
  */
 function setupTriggers() {
-  // 既存トリガー削除
   ScriptApp.getProjectTriggers().forEach(function(t) {
     ScriptApp.deleteTrigger(t);
   });
 
-  // 毎晩23:00に日次同期
   ScriptApp.newTrigger('dailySync')
     .timeBased()
     .everyDays(1)

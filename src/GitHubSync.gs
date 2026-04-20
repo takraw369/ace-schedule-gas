@@ -1,19 +1,12 @@
 /**
  * GitHubSync.gs - GitHub同期機能
  * スプシの状態を takraw369/ace-schedule-state/state/latest.json へpush
- *
- * 事前準備:
- *   スクリプトプロパティに GITHUB_TOKEN を設定すること
- *   スコープ: repo (private repo含む)
  */
 
-var GITHUB_OWNER = 'takraw369';
+var GITHUB_OWNER      = 'takraw369';
 var GITHUB_STATE_REPO = 'ace-schedule-state';
-var STATE_FILE_PATH = 'state/latest.json';
+var STATE_FILE_PATH   = 'state/latest.json';
 
-/**
- * スプシの状態をJSONにしてGitHubへpush
- */
 function exportStateToGit() {
   var token = PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN');
 
@@ -35,10 +28,8 @@ function exportStateToGit() {
     var jsonStr = JSON.stringify(state, null, 2);
     var encoded = Utilities.base64Encode(jsonStr, Utilities.Charset.UTF_8);
 
-    // 既存ファイルのSHAを取得（更新のため）
     var sha = getFileSha(token);
 
-    // ファイルをpush
     var payload = {
       message: 'chore: update state snapshot ' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm'),
       content: encoded,
@@ -65,8 +56,7 @@ function exportStateToGit() {
         'リポジトリ: ' + GITHUB_OWNER + '/' + GITHUB_STATE_REPO);
     } else {
       Logger.log('GitHub同期エラー: ' + code + ' / ' + response.getContentText());
-      SpreadsheetApp.getUi().alert('GitHub同期エラー: ' + code + '\n' +
-        '詳細はApps Scriptのログを確認してください。');
+      SpreadsheetApp.getUi().alert('GitHub同期エラー: ' + code + '\n詳細はApps Scriptのログを確認してください。');
     }
 
   } catch (e) {
@@ -75,12 +65,9 @@ function exportStateToGit() {
   }
 }
 
-/**
- * スプシのデータをJSONオブジェクトに変換
- */
 function buildStateJson() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var inputSheet = ss.getSheetByName('入力');
+  var inputSheet = ss.getSheetByName(SHEET_INPUT);
 
   var inputData = [];
   if (inputSheet) {
@@ -90,20 +77,19 @@ function buildStateJson() {
       raw.forEach(function(row) {
         if (row[0] !== '') {
           inputData.push({
-            date: row[0] instanceof Date ? Utilities.formatDate(row[0], 'Asia/Tokyo', 'yyyy-MM-dd') : String(row[0]),
+            date:     row[0] instanceof Date ? Utilities.formatDate(row[0], 'Asia/Tokyo', 'yyyy-MM-dd') : String(row[0]),
             provider: row[1],
-            revenue: row[2],
-            memo: row[3]
+            revenue:  row[2],
+            memo:     row[3]
           });
         }
       });
     }
   }
 
-  // サマリー計算
   var now = new Date();
   var thisMonth = now.getMonth();
-  var thisYear = now.getFullYear();
+  var thisYear  = now.getFullYear();
 
   var monthlyTotal = inputData.reduce(function(sum, d) {
     var dt = new Date(d.date);
@@ -117,15 +103,12 @@ function buildStateJson() {
     exported_at: Utilities.formatDate(now, 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss'),
     summary: {
       monthly_total: monthlyTotal,
-      record_count: inputData.length
+      record_count:  inputData.length
     },
     input_data: inputData
   };
 }
 
-/**
- * GitHubの既存ファイルSHAを取得（更新時に必要）
- */
 function getFileSha(token) {
   var url = 'https://api.github.com/repos/' + GITHUB_OWNER + '/' + GITHUB_STATE_REPO + '/contents/' + STATE_FILE_PATH;
   var response = UrlFetchApp.fetch(url, {
@@ -138,8 +121,7 @@ function getFileSha(token) {
   });
 
   if (response.getResponseCode() === 200) {
-    var data = JSON.parse(response.getContentText());
-    return data.sha;
+    return JSON.parse(response.getContentText()).sha;
   }
   return null;
 }
