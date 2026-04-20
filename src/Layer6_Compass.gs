@@ -74,7 +74,7 @@ function setupFinanceCompass() {
   sheet.getRange(r, 2)
     .setFormula('=B' + FIXED_TOTAL_ROW + '*2')
     .setFontWeight('bold').setFontColor('#cc0000').setNumberFormat('¥#,##0');
-  sheet.getRange(r, 3).setValue('← 今月これを超えないと詰む').setFontColor('#cc0000').setItalic(true);
+  sheet.getRange(r, 3).setValue('← 今月これを超えないと詰む').setFontColor('#cc0000').setFontStyle('italic');
   r += 2;
 
   // ════════════════════════════════════════════════════
@@ -84,7 +84,7 @@ function setupFinanceCompass() {
 
   sheet.getRange(r, 1).setValue('リアン単価').setFontWeight('bold');
   sheet.getRange(r, 2).setValue(300000).setNumberFormat('¥#,##0');
-  sheet.getRange(r, 3).setValue('← 受注金額に合わせて更新').setFontColor('#999999').setItalic(true);
+  sheet.getRange(r, 3).setValue('← 受注金額に合わせて更新').setFontColor('#999999').setFontStyle('italic');
   var RIAN_CELL = 'B' + r;
   r++;
 
@@ -186,7 +186,7 @@ function setupFinanceCompass() {
   sheet.getRange(r, 2)
     .setFormula('=B' + INCOME_TOTAL_ROW + '-B' + EMERGENCY_ROW)
     .setFontWeight('bold').setFontColor('#cc0000').setNumberFormat('¥#,##0');
-  sheet.getRange(r, 3).setValue('← マイナス = リアン獲得が急務').setFontColor('#cc0000').setItalic(true);
+  sheet.getRange(r, 3).setValue('← マイナス = リアン獲得が急務').setFontColor('#cc0000').setFontStyle('italic');
   r += 2;
 
   // ════════════════════════════════════════════════════
@@ -204,7 +204,7 @@ function setupFinanceCompass() {
   sheet.getRange(r, 2)
     .setFormula('=CEILING(B' + FIXED_TOTAL_ROW + '*3/' + RIAN_CELL + ',1)')
     .setFontWeight('bold').setFontSize(14);
-  sheet.getRange(r, 3).setValue('← これが揃えば配送やめられる').setFontColor('#1a6b2e').setItalic(true);
+  sheet.getRange(r, 3).setValue('← これが揃えば配送やめられる').setFontColor('#1a6b2e').setFontStyle('italic');
   r += 2;
 
   // ════════════════════════════════════════════════════

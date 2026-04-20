@@ -22,7 +22,7 @@ function setupArchive() {
     .setFontWeight('bold').setFontSize(12);
 
   sheet.getRange(2, 1).setValue('このシートは手動管理です。GASは再生成しません。')
-    .setFontColor('#888888').setItalic(true);
+    .setFontColor('#888888').setFontStyle('italic');
 
   sheet.setColumnWidth(1, 400);
   Logger.log('_Archive シート作成');
