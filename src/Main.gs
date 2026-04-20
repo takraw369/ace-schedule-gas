@@ -28,9 +28,9 @@ function setupAll() {
  */
 function onEdit(e) {
   try {
-    if (e.range.getSheet().getName() === COMPASS_SHEET_NAME) {
-      compassOnEdit(e);
-    }
+    var sheetName = e.range.getSheet().getName();
+    if (sheetName === COMPASS_SHEET_NAME)  compassOnEdit(e);
+    if (sheetName === PROVIDER_SHEET_NAME) providerOnEdit(e);
   } catch (err) {
     Logger.log('onEdit error: ' + err.message);
   }
