@@ -15,6 +15,8 @@ function setupAll() {
     setupInputSheet();      // 4_Income_Log
     setupCalcSheet();       // 計算
     setupFinanceCompass();  // 💰財務コンパス
+    setup7Strategy();       // 7_Strategy
+    setup8Content();        // 8_Content
     setupArchive();         // _Archive
     Logger.log('=== セットアップ完了 ===');
     SpreadsheetApp.getUi().alert('セットアップ完了！\n各シートを確認してください。');

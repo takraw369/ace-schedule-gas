@@ -15,6 +15,8 @@ var SHEET_ACE_SCHEDULE   = '1_ACE_Schedule';
 var SHEET_DELIVERY_ROUTE = '2_Delivery_Route';
 var SHEET_DAILY          = '3_Daily_Schedule';
 var SHEET_ARCHIVE        = '_Archive';
+var SHEET_STRATEGY       = '7_Strategy';
+var SHEET_CONTENT        = '8_Content';
 
 // 既存コードとの互換エイリアス
 var COMPASS_SHEET_NAME   = SHEET_COMPASS;

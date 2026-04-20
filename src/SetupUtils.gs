@@ -78,6 +78,8 @@ function reorderSheets() {
     SHEET_MASTER_CONFIG,  // 5_Master_Config
     SHEET_CALC,           // 計算
     SHEET_COMPASS,        // 💰財務コンパス
+    SHEET_STRATEGY,       // 7_Strategy
+    SHEET_CONTENT,        // 8_Content
     SHEET_PROVIDER,       // プロバイダマスタ
     SHEET_ARCHIVE,        // _Archive
   ];
