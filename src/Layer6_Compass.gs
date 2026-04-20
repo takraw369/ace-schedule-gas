@@ -1,30 +1,35 @@
 /**
  * Layer6_Compass.gs - 💰財務コンパス
  *
- * 固定費・欲しいものリスト・収益見立て・フェードアウトラインを一枚に統合。
- * 初回のみGASが初期データを埋め込む。2回目以降は手動編集を保護してスキップ。
+ * 何度 setupFinanceCompass() を実行しても手入力データは消えない。
+ * 仕組み: スプシ編集 → onEdit → Script Properties に自動バックアップ
+ *         setup 実行  → バックアップから復元して再生成
  */
+
+var COMPASS_SHEET_NAME = '💰財務コンパス';
+var COMPASS_DATA_KEY   = 'compass_data_v1';
+
+// ════════════════════════════════════════════════════════
+// メイン: シート生成（何度でも安全に実行可）
+// ════════════════════════════════════════════════════════
 
 function setupFinanceCompass() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheetName = '💰財務コンパス';
+  var sheet = ss.getSheetByName(COMPASS_SHEET_NAME);
 
-  // 既存シートは再生成しない（手動編集保護）
-  if (ss.getSheetByName(sheetName)) {
-    SpreadsheetApp.getUi().alert(
-      '💰財務コンパスは既に存在します。\n' +
-      '手動編集を保護するため再生成はスキップしました。\n\n' +
-      'リセットしたい場合はシートを手動で削除してから再実行してください。'
-    );
-    return;
+  // 既存データを退避
+  if (sheet) {
+    _compassSave(sheet);
+    sheet.clearContents();
+    sheet.clearFormats();
+  } else {
+    sheet = ss.insertSheet(COMPASS_SHEET_NAME);
+    sheet.setTabColor('#d4af37');
   }
-
-  var sheet = ss.insertSheet(sheetName);
-  sheet.setTabColor('#d4af37');
 
   var r = 1;
 
-  // ── タイトル ──────────────────────────────────────────
+  // ── タイトル ────────────────────────────────────────
   sheet.getRange(r, 1, 1, 4).merge()
     .setValue('💰 MASA 財務コンパス')
     .setBackground('#1a1a2e').setFontColor('#d4af37')
@@ -32,11 +37,10 @@ function setupFinanceCompass() {
     .setHorizontalAlignment('center');
   r += 2;
 
-  // ════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════
   // A: 月間固定費
-  // ════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════
   _cSection(sheet, r, '📋 月間固定費'); r++;
-
   sheet.getRange(r, 1, 1, 4).setValues([['項目', '月額', '支払日', 'メモ']]);
   _cSubHeader(sheet, r, 4); r++;
 
@@ -57,11 +61,10 @@ function setupFinanceCompass() {
   sheet.getRange(r, 3, fixedRows.length, 1).setNumberFormat('0"日"');
   r += fixedRows.length;
 
-  // 手入力用空行 x5
+  // 手入力枠 x5
   sheet.getRange(r, 2, 5, 1).setNumberFormat('¥#,##0');
   r += 5;
 
-  // 月最低必要額
   var FIXED_TOTAL_ROW = r;
   sheet.getRange(r, 1).setValue('月最低必要額').setFontWeight('bold');
   sheet.getRange(r, 2)
@@ -69,7 +72,6 @@ function setupFinanceCompass() {
     .setFontWeight('bold').setFontSize(12).setNumberFormat('¥#,##0');
   r++;
 
-  // 緊急ライン（×2ヶ月）
   var EMERGENCY_ROW = r;
   sheet.getRange(r, 1).setValue('緊急ライン（×2ヶ月）').setFontWeight('bold').setFontColor('#cc0000');
   sheet.getRange(r, 2)
@@ -78,12 +80,11 @@ function setupFinanceCompass() {
   sheet.getRange(r, 3).setValue('← 今月これを超えないと詰む').setFontColor('#cc0000').setItalic(true);
   r += 2;
 
-  // ════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════
   // B: 欲しいものリスト
-  // ════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════
   _cSection(sheet, r, '🛒 欲しいものリスト'); r++;
 
-  // リアン単価（参照セル）
   sheet.getRange(r, 1).setValue('リアン単価').setFontWeight('bold');
   sheet.getRange(r, 2).setValue(300000).setNumberFormat('¥#,##0');
   sheet.getRange(r, 3).setValue('← 受注金額に合わせて更新').setFontColor('#999999').setItalic(true);
@@ -95,49 +96,39 @@ function setupFinanceCompass() {
 
   var WISH_DATA_START = r;
   var wishItems = [
-    ['冷蔵庫',               55000],
-    ['運送ガジェット',       20000],
-    ['仕事着・靴',           15000],
-    ['ElevenLabs等（月）',    3000],
+    ['冷蔵庫',              55000],
+    ['運送ガジェット',      20000],
+    ['仕事着・靴',          15000],
+    ['ElevenLabs等（月）',   3000],
   ];
   wishItems.forEach(function(item) {
     sheet.getRange(r, 1).setValue(item[0]);
     sheet.getRange(r, 2).setValue(item[1]).setNumberFormat('¥#,##0');
-    sheet.getRange(r, 3).setFormula(
-      '=IFERROR(ROUND(B' + r + '/(B' + FIXED_TOTAL_ROW + '/26),1),"")'
-    );
-    sheet.getRange(r, 4).setFormula(
-      '=IFERROR(ROUND(B' + r + '/' + RIAN_CELL + ',2),"")'
-    );
+    sheet.getRange(r, 3).setFormula('=IFERROR(ROUND(B' + r + '/(B' + FIXED_TOTAL_ROW + '/26),1),"")');
+    sheet.getRange(r, 4).setFormula('=IFERROR(ROUND(B' + r + '/' + RIAN_CELL + ',2),"")');
     r++;
   });
 
-  // 手入力枠 x3（数式のみ設定）
+  // 手入力枠 x3
   for (var i = 0; i < 3; i++) {
-    sheet.getRange(r, 2, 1, 1).setNumberFormat('¥#,##0');
-    sheet.getRange(r, 3).setFormula(
-      '=IFERROR(ROUND(B' + r + '/(B' + FIXED_TOTAL_ROW + '/26),1),"")'
-    );
-    sheet.getRange(r, 4).setFormula(
-      '=IFERROR(ROUND(B' + r + '/' + RIAN_CELL + ',2),"")'
-    );
+    sheet.getRange(r, 2).setNumberFormat('¥#,##0');
+    sheet.getRange(r, 3).setFormula('=IFERROR(ROUND(B' + r + '/(B' + FIXED_TOTAL_ROW + '/26),1),"")');
+    sheet.getRange(r, 4).setFormula('=IFERROR(ROUND(B' + r + '/' + RIAN_CELL + ',2),"")');
     r++;
   }
 
-  // 合計
   var WISH_TOTAL_ROW = r;
-  sheet.getRange(r, 1).setValue('合計').setFontWeight('bold');
+  sheet.getRange(r, 1).setValue('欲しいもの合計').setFontWeight('bold');
   sheet.getRange(r, 2)
     .setFormula('=SUM(B' + WISH_DATA_START + ':B' + (r - 1) + ')')
     .setFontWeight('bold').setNumberFormat('¥#,##0');
   r += 2;
 
-  // ════════════════════════════════════════════════════════
-  // C: 今月 収益見立て（入力シート連動）
-  // ════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════
+  // C: 今月 収益見立て
+  // ════════════════════════════════════════════════════
   _cSection(sheet, r, '📊 今月 収益見立て（自動連動）'); r++;
 
-  // 配送実績
   sheet.getRange(r, 1).setValue('▶ 配送 実績').setFontWeight('bold'); r++;
 
   var DELIVERY_TOTAL_ROW = r;
@@ -147,8 +138,7 @@ function setupFinanceCompass() {
       '(MONTH(入力!A2:A1001)=MONTH(TODAY()))*' +
       '(YEAR(入力!A2:A1001)=YEAR(TODAY()))*' +
       '(入力!B2:B1001<>"休み")*' +
-      '(入力!C2:C1001<>""),' +
-      '入力!C2:C1001),0)'
+      '(入力!C2:C1001<>""),入力!C2:C1001),0)'
   ).setNumberFormat('¥#,##0'); r++;
 
   sheet.getRange(r, 1).setValue('今月稼働日数');
@@ -176,7 +166,6 @@ function setupFinanceCompass() {
       '計算!F2:F501),0)'
   ).setNumberFormat('¥#,##0'); r += 2;
 
-  // ACE / web（手入力）
   sheet.getRange(r, 1).setValue('▶ ACE / web（手入力）').setFontWeight('bold'); r++;
 
   var ACE_ROW = r;
@@ -187,7 +176,6 @@ function setupFinanceCompass() {
   sheet.getRange(r, 1).setValue('その他web収益');
   sheet.getRange(r, 2).setValue(0).setNumberFormat('¥#,##0'); r += 2;
 
-  // 合計 & 差分
   var INCOME_TOTAL_ROW = r;
   sheet.getRange(r, 1).setValue('今月収益合計').setFontWeight('bold');
   sheet.getRange(r, 2)
@@ -202,9 +190,9 @@ function setupFinanceCompass() {
   sheet.getRange(r, 3).setValue('← マイナス = リアン獲得が急務').setFontColor('#cc0000').setItalic(true);
   r += 2;
 
-  // ════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════
   // D: 配送フェードアウトライン
-  // ════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════
   _cSection(sheet, r, '🚪 配送フェードアウトライン'); r++;
 
   sheet.getRange(r, 1).setValue('生活費月額（固定費合計）');
@@ -218,12 +206,11 @@ function setupFinanceCompass() {
     .setFormula('=CEILING(B' + FIXED_TOTAL_ROW + '*3/' + RIAN_CELL + ',1)')
     .setFontWeight('bold').setFontSize(14);
   sheet.getRange(r, 3).setValue('← これが揃えば配送やめられる').setFontColor('#1a6b2e').setItalic(true);
-
   r += 2;
 
-  // ════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════
   // E: 配送ペース目標
-  // ════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════
   _cSection(sheet, r, '📦 配送ペース目標（1日あたり）'); r++;
 
   sheet.getRange(r, 1, 1, 4).setValues([['時間枠', '稼働時間(h)', '目標個数', '1時間あたり']]);
@@ -244,33 +231,144 @@ function setupFinanceCompass() {
     r++;
   });
 
-  // 合計行
   var PACE_DATA_END = r - 1;
-  sheet.getRange(r, 1).setValue('合計').setFontWeight('bold');
-  sheet.getRange(r, 2).setFormula('=SUM(B' + PACE_DATA_START + ':B' + PACE_DATA_END + ')').setFontWeight('bold');
-  sheet.getRange(r, 3).setFormula('=SUM(C' + PACE_DATA_START + ':C' + PACE_DATA_END + ')').setFontWeight('bold');
-  sheet.getRange(r, 4).setFormula(
-    '=IFERROR("平均 "&ROUND(C' + r + '/B' + r + ',2)&"個 / 時","")'
-  ).setFontWeight('bold');
-  r++;
+  sheet.getRange(r, 1).setValue('ペース合計').setFontWeight('bold');
+  sheet.getRange(r, 2)
+    .setFormula('=SUM(B' + PACE_DATA_START + ':B' + PACE_DATA_END + ')')
+    .setFontWeight('bold');
+  sheet.getRange(r, 3)
+    .setFormula('=SUM(C' + PACE_DATA_START + ':C' + PACE_DATA_END + ')')
+    .setFontWeight('bold');
+  sheet.getRange(r, 4)
+    .setFormula('=IFERROR("平均 "&ROUND(C' + r + '/B' + r + ',2)&"個 / 時","")')
+    .setFontWeight('bold');
 
-  // ── 列幅 ────────────────────────────────────────────────
+  // ── 列幅 ──────────────────────────────────────────
   sheet.setColumnWidth(1, 220);
   sheet.setColumnWidth(2, 130);
   sheet.setColumnWidth(3, 170);
   sheet.setColumnWidth(4, 130);
-
   sheet.setFrozenRows(1);
 
-  Logger.log('💰財務コンパス セットアップ完了');
-  SpreadsheetApp.getUi().alert(
-    '💰財務コンパスを作成しました！\n\n' +
-    '① リアン単価セルを実際の受注金額に更新\n' +
-    '② ACE収益・web収益は月初にゼロリセット後、手入力'
-  );
+  // 退避データを復元
+  _compassRestore(sheet);
+
+  Logger.log('💰財務コンパス 再生成完了');
+  SpreadsheetApp.getUi().alert('💰財務コンパスを更新しました。');
 }
 
-// ── ヘルパー ──────────────────────────────────────────────
+// ════════════════════════════════════════════════════════
+// データ退避 / 復元（Script Properties 経由）
+// ════════════════════════════════════════════════════════
+
+/**
+ * シート全体の手入力セルを Script Properties に保存
+ * 数式セルは除外。Col A の値をキーに B/C/D を記録。
+ */
+function _compassSave(sheet) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+
+  var values   = sheet.getRange(1, 1, lastRow, 4).getValues();
+  var formulas = sheet.getRange(1, 1, lastRow, 4).getFormulas();
+  var data = {};
+
+  values.forEach(function(row, i) {
+    var label = String(row[0]).trim();
+    if (!label) return;
+    data[label] = {
+      b: formulas[i][1] ? null : row[1],
+      c: formulas[i][2] ? null : row[2],
+      d: formulas[i][3] ? null : row[3],
+    };
+  });
+
+  try {
+    PropertiesService.getScriptProperties().setProperty(
+      COMPASS_DATA_KEY, JSON.stringify(data)
+    );
+    Logger.log('💰コンパス退避: ' + Object.keys(data).length + '件');
+  } catch (e) {
+    Logger.log('compass save error: ' + e.message);
+  }
+}
+
+/**
+ * Script Properties から手入力データを復元
+ * 数式セルには上書きしない。
+ */
+function _compassRestore(sheet) {
+  var raw = PropertiesService.getScriptProperties().getProperty(COMPASS_DATA_KEY);
+  if (!raw) return;
+
+  var data;
+  try { data = JSON.parse(raw); } catch (e) { return; }
+
+  var lastRow  = sheet.getLastRow();
+  var values   = sheet.getRange(1, 1, lastRow, 1).getValues();
+  var formulas = sheet.getRange(1, 1, lastRow, 4).getFormulas();
+
+  values.forEach(function(row, i) {
+    var label = String(row[0]).trim();
+    if (!label || !data[label]) return;
+    var saved = data[label];
+    if (saved.b !== null && saved.b !== undefined && !formulas[i][1])
+      sheet.getRange(i + 1, 2).setValue(saved.b);
+    if (saved.c !== null && saved.c !== undefined && !formulas[i][2])
+      sheet.getRange(i + 1, 3).setValue(saved.c);
+    if (saved.d !== null && saved.d !== undefined && !formulas[i][3])
+      sheet.getRange(i + 1, 4).setValue(saved.d);
+  });
+
+  Logger.log('💰コンパス復元完了');
+}
+
+// ════════════════════════════════════════════════════════
+// onEdit ハンドラ（Main.gs の onEdit から呼ばれる）
+// ════════════════════════════════════════════════════════
+
+/**
+ * 財務コンパスが編集されるたびに Script Properties を更新
+ * Col A 変更時: 全保存（キー変更に対応）
+ * Col B-D 変更時: 差分保存（高速）
+ */
+function compassOnEdit(e) {
+  var sheet = e.range.getSheet();
+  var col   = e.range.getColumn();
+  var row   = e.range.getRow();
+
+  if (col > 4) return;
+
+  if (col === 1) {
+    _compassSave(sheet);
+    return;
+  }
+
+  // 差分保存: 編集された行の B/C/D だけ更新
+  var label = String(sheet.getRange(row, 1).getValue()).trim();
+  if (!label) return;
+
+  var formula = sheet.getRange(row, col).getFormula();
+  if (formula) return; // 数式セルは保存しない
+
+  var raw  = PropertiesService.getScriptProperties().getProperty(COMPASS_DATA_KEY);
+  var data;
+  try { data = raw ? JSON.parse(raw) : {}; } catch (err) { data = {}; }
+
+  if (!data[label]) data[label] = {b: null, c: null, d: null};
+  var colKey = ['b', 'c', 'd'][col - 2];
+  data[label][colKey] = e.range.getValue();
+
+  try {
+    PropertiesService.getScriptProperties().setProperty(
+      COMPASS_DATA_KEY, JSON.stringify(data)
+    );
+  } catch (err) {
+    Logger.log('compass onEdit save error: ' + err.message);
+  }
+}
+
+// ── ヘルパー ──────────────────────────────────────────
 
 function _cSection(sheet, row, title) {
   sheet.getRange(row, 1, 1, 4).merge()

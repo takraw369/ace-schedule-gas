@@ -24,6 +24,19 @@ function setupAll() {
 }
 
 /**
+ * 財務コンパスの手入力を Script Properties に自動バックアップ
+ */
+function onEdit(e) {
+  try {
+    if (e.range.getSheet().getName() === COMPASS_SHEET_NAME) {
+      compassOnEdit(e);
+    }
+  } catch (err) {
+    Logger.log('onEdit error: ' + err.message);
+  }
+}
+
+/**
  * メニューを追加する（スプシ起動時に自動実行）
  */
 function onOpen() {
