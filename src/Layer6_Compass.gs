@@ -248,7 +248,6 @@ function setupFinanceCompass() {
   _compassRestore(sheet);
 
   Logger.log('💰財務コンパス 再生成完了');
-  SpreadsheetApp.getUi().alert('💰財務コンパスを更新しました。');
 }
 
 // ════════════════════════════════════════════════════════
