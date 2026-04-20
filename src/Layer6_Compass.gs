@@ -219,6 +219,41 @@ function setupFinanceCompass() {
     .setFontWeight('bold').setFontSize(14);
   sheet.getRange(r, 3).setValue('← これが揃えば配送やめられる').setFontColor('#1a6b2e').setItalic(true);
 
+  r += 2;
+
+  // ════════════════════════════════════════════════════════
+  // E: 配送ペース目標
+  // ════════════════════════════════════════════════════════
+  _cSection(sheet, r, '📦 配送ペース目標（1日あたり）'); r++;
+
+  sheet.getRange(r, 1, 1, 4).setValues([['時間枠', '稼働時間(h)', '目標個数', '1時間あたり']]);
+  _cSubHeader(sheet, r, 4); r++;
+
+  var PACE_DATA_START = r;
+  var paceRows = [
+    ['09:00 - 12:00', 3, 64],
+    ['14:00 - 16:00', 2, 43],
+    ['16:00 - 18:00', 2, 43],
+    ['18:00 - 19:00', 1, 20],
+  ];
+  paceRows.forEach(function(row) {
+    sheet.getRange(r, 1).setValue(row[0]);
+    sheet.getRange(r, 2).setValue(row[1]);
+    sheet.getRange(r, 3).setValue(row[2]);
+    sheet.getRange(r, 4).setFormula('=IFERROR(ROUND(C' + r + '/B' + r + ',1),"")');
+    r++;
+  });
+
+  // 合計行
+  var PACE_DATA_END = r - 1;
+  sheet.getRange(r, 1).setValue('合計').setFontWeight('bold');
+  sheet.getRange(r, 2).setFormula('=SUM(B' + PACE_DATA_START + ':B' + PACE_DATA_END + ')').setFontWeight('bold');
+  sheet.getRange(r, 3).setFormula('=SUM(C' + PACE_DATA_START + ':C' + PACE_DATA_END + ')').setFontWeight('bold');
+  sheet.getRange(r, 4).setFormula(
+    '=IFERROR("平均 "&ROUND(C' + r + '/B' + r + ',2)&"個 / 時","")'
+  ).setFontWeight('bold');
+  r++;
+
   // ── 列幅 ────────────────────────────────────────────────
   sheet.setColumnWidth(1, 220);
   sheet.setColumnWidth(2, 130);
