@@ -10,7 +10,11 @@ var SHEET_CALC          = '計算';
 var SHEET_MASTER_CONFIG = '5_Master_Config';
 var SHEET_PROVIDER      = 'プロバイダマスタ'; // 5_Master_Config のビュー
 var SHEET_COMPASS       = '💰財務コンパス';
-var SHEET_DASHBOARD     = '0_DASHBOARD';     // 手動管理シート（GAS不干渉）
+var SHEET_DASHBOARD      = '0_DASHBOARD';
+var SHEET_ACE_SCHEDULE   = '1_ACE_Schedule';
+var SHEET_DELIVERY_ROUTE = '2_Delivery_Route';
+var SHEET_DAILY          = '3_Daily_Schedule';
+var SHEET_ARCHIVE        = '_Archive';
 
 // 既存コードとの互換エイリアス
 var COMPASS_SHEET_NAME   = SHEET_COMPASS;
