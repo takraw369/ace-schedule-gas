@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ACE Vault Command Center</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header><h1>ACE Vault Command Center (Read Only)</h1></header>
+  <main class="layout">
+    <aside class="left">
+      <section><h2>Type別</h2><ul id="typeList"></ul></section>
+      <section><h2>ディレクトリ</h2><ul id="dirList"></ul></section>
+      <section><h2>孤立ノード</h2><ul id="isolatedList"></ul></section>
+      <section><h2>最近触ったノート</h2><ul id="recentList"></ul></section>
+    </aside>
+    <section class="center">
+      <h2 id="noteTitle">ノートを選択</h2>
+      <p id="noteMeta"></p>
+      <div id="images"></div>
+      <h3>関連リンク</h3>
+      <ul id="related"></ul>
+      <button id="openObsidian" disabled>Obsidianで開く</button>
+    </section>
+    <aside class="right">
+      <h2>リゾームグラフ</h2>
+      <canvas id="graph" width="420" height="420"></canvas>
+    </aside>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

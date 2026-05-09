@@ -63,3 +63,26 @@ Apps Script エディタで `setupTriggers()` を手動実行 → 毎晩23:00に
 
 - `takraw369/ace-schedule-gas` — このリポジトリ（GASソースコード）
 - `takraw369/ace-schedule-state` — 状態スナップショット（プライベート）
+
+## ローカルHTML司令室（Read Only）
+
+GitHub Pages公開ではなく、ローカルのObsidian vaultを安全に読む用途向け。  
+`server.js` を起動して `http://127.0.0.1:3690` で表示します。
+
+### 起動
+
+```bash
+./view-vault.sh
+```
+
+### 構成
+
+- `server.js` : 軽量ローカルサーバ + `/api/notes` + `/api/asset`
+- `vault.config.json` : vaultパス設定（デフォルト: `/Users/hondod20/ドキュメント/Obsidian/ace-vault/`）
+- `web/index.html`, `web/app.js`, `web/style.css` : ローカル閲覧UI
+
+### セキュリティ方針
+
+- vault外のパスは拒否
+- 読み取り専用（Markdown書き戻しなし）
+- 本物のvaultをGitHubへアップロードしない運用前提
