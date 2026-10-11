@@ -3,8 +3,9 @@
 
 const fs = require('fs');
 const path = require('path');
+const { pathToFileURL } = require('url');
 
-const VAULT_PATH = path.join(process.env.HOME, 'ドキュメント/Obsidian/ace-vault');
+const VAULT_PATH = process.env.ACE_VAULT_PATH || path.join(process.env.HOME || '', 'ドキュメント/Obsidian/ace-vault');
 const OUTPUT = path.join(__dirname, 'vault-view.html');
 
 function parseFrontmatter(content) {
@@ -45,6 +46,28 @@ function extractLinks(body) {
   return [...links];
 }
 
+// Keep images in the original vault. No image is copied or embedded.
+function extractImages(body, filePath) {
+  const foundImages = [], seen = new Set();
+  for (const m of body.matchAll(/!\[\[([^\]]+)\]\]/g)) {
+    const ref = m[1].split('|')[0].split('#')[0].trim();
+    if (!/\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i.test(ref) || seen.has(ref)) continue;
+    seen.add(ref);
+    const paths = [
+      path.resolve(path.dirname(filePath), ref),
+      path.resolve(VAULT_PATH, 'attachments', ref),
+      path.resolve(VAULT_PATH, 'attachments', path.basename(ref)),
+      path.resolve(VAULT_PATH, ref)
+    ];
+    const resolved = paths.find(p => {
+      if (!(p === VAULT_PATH || p.startsWith(VAULT_PATH + path.sep))) return false;
+      try { return fs.statSync(p).isFile(); } catch { return false; }
+    });
+    foundImages.push({ source: ref, url: resolved ? pathToFileURL(resolved).href : null });
+  }
+  return foundImages;
+}
+
 function walkDir(dir, results = []) {
   let entries;
   try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return results; }
@@ -82,9 +105,11 @@ for (let i = 0; i < files.length; i++) {
   const excerpt = body.replace(/\n+/g, ' ').replace(/#+\s/g, '').slice(0, 200);
   const type = normalizeType(meta.type);
   const tags = Array.isArray(meta.tags) ? meta.tags : (meta.tags ? [meta.tags] : []);
-  const linkTargets = extractLinks(body);
+  const linkTargets = extractLinks(body.replace(/!\[\[[^\]]+\]\]/g, ''));
+  const images = extractImages(body, filePath);
+  const preview = body.slice(0, 5000);
 
-  const node = { id: i, title, relPath, dir, type, tags, linkTargets, links: [], backlinks: [], excerpt, daysAgo, isTriage, wordCount };
+  const node = { id: i, title, relPath, dir, type, tags, linkTargets, links: [], backlinks: [], excerpt, preview, images, mtimeMs: mtime, daysAgo, isTriage, wordCount };
   nodes.push(node);
   titleToId.set(title.toLowerCase(), i);
   // also register without extension variants
@@ -104,7 +129,7 @@ for (const node of nodes) {
 }
 
 // Serialize
-const data = JSON.stringify(nodes);
+const data = JSON.stringify(nodes).replace(/</g, '\\u003c');
 
 // HTML template
 const html = `<!DOCTYPE html>
@@ -133,8 +158,9 @@ button[data-type="null"].active{color:#888780;border-color:#888780;background:#1
 button[data-mode].active{color:#fff;border-color:#888;background:#333}
 #isolate-btn.active{color:#ff6b6b;border-color:#ff6b6b;background:#220d0d;animation:none}
 #shake-btn{margin-left:auto}
-#main{display:flex;flex:1;overflow:hidden}
-#canvas-wrap{flex:1;position:relative;overflow:hidden}
+#main{display:flex;flex:1;min-height:0;overflow-x:auto;overflow-y:hidden}
+#sidebar{width:240px;flex:0 0 240px;background:#20201e;border-right:1px solid #333;overflow-y:auto;padding:12px 10px}
+#canvas-wrap{width:50vw;flex:0 0 50vw;min-width:460px;position:relative;overflow:hidden}
 svg{width:100%;height:100%;display:block}
 .node circle{cursor:pointer;transition:opacity .2s}
 .node text{pointer-events:none;font-size:10px;fill:#ccc;text-anchor:middle;dominant-baseline:central;user-select:none}
@@ -144,7 +170,7 @@ svg{width:100%;height:100%;display:block}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0.15}}
 .node.dimmed circle{opacity:0.15}
 .node.highlighted circle{stroke:#fff;stroke-width:2}
-#detail{width:320px;background:#1e1e1c;border-left:1px solid #333;overflow-y:auto;padding:16px;flex-shrink:0;display:flex;flex-direction:column;gap:12px}
+#detail{min-width:320px;flex:1 0 320px;background:#1e1e1c;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
 #detail h2{font-size:15px;font-weight:600;color:#e8e6e0;line-height:1.4}
 .meta-row{font-size:11px;color:#777;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .type-badge{display:inline-block;padding:2px 7px;border-radius:3px;font-size:11px;font-weight:600;color:#fff}
@@ -158,6 +184,20 @@ svg{width:100%;height:100%;display:block}
 #stats{font-size:11px;color:#555;padding:6px 14px;background:#1a1a18;border-top:1px solid #222;flex-shrink:0}
 #detail-empty{color:#555;font-size:13px;text-align:center;margin-top:40px}
 .excerpt{font-size:12px;color:#888;line-height:1.6;white-space:pre-wrap;word-break:break-all}
+
+#sidebar h2{font-size:14px;color:#e8e6e0;margin-bottom:10px}
+#sidebar h3{font-size:11px;color:#999;margin:16px 4px 5px}
+#sidebar details{border-top:1px solid #30302e;padding:4px 0}
+#sidebar summary{font-size:12px;color:#ccc;cursor:pointer;padding:5px 4px;overflow-wrap:anywhere}
+.side-item{display:block;width:100%;min-height:32px;text-align:left;padding:6px 8px;margin:2px 0;border:0;border-radius:4px;color:#c5c4be;background:transparent;font-size:12px;white-space:normal;overflow-wrap:anywhere}
+.side-item:hover,.side-item.selected{background:#373734;color:#fff}
+.side-note{font-size:11px;color:#777;padding:4px 8px}
+.note-preview{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;max-height:420px;overflow:auto;font-size:12px}
+.note-image{max-width:100%;height:auto;border-radius:6px;margin-top:7px}
+.note-path,.missing-image{font-size:11px;color:#8d8a80;overflow-wrap:anywhere}
+.missing-image{color:#b68d66;margin:6px 0}
+#detail h2{overflow-wrap:anywhere}
+@media(max-width:720px){#toolbar{padding:8px}#search{width:160px}#canvas-wrap{min-width:340px;flex-basis:80vw}#detail{min-width:300px}}
 </style>
 </head>
 <body>
@@ -180,8 +220,9 @@ svg{width:100%;height:100%;display:block}
   <button id="shake-btn">↺ 揺らす</button>
 </div>
 <div id="main">
-  <div id="canvas-wrap"><svg id="svg"><g id="links-g"></g><g id="nodes-g"></g></svg></div>
-  <div id="detail"><div id="detail-empty">ノードをクリックして詳細表示</div></div>
+  <aside id="sidebar" aria-label="Vaultナビゲーション"><h2>Vault ナビゲーション</h2><div id="sidebar-content"></div></aside>
+  <main id="detail"><div id="detail-empty">左の一覧か右のグラフからノートを選択</div></main>
+  <div id="canvas-wrap"><svg id="svg" aria-label="ノート関係グラフ"><g id="viewport"><g id="links-g"></g><g id="nodes-g"></g></g></svg></div>
 </div>
 <div id="stats">ロード中…</div>
 
@@ -211,6 +252,7 @@ let highlightSet = new Set(); // ids to highlight on selection
 
 // positions init
 const svg = document.getElementById('svg');
+const viewportG = document.getElementById('viewport');
 const nodesG = document.getElementById('nodes-g');
 const linksG = document.getElementById('links-g');
 
@@ -226,6 +268,49 @@ function scatter() {
   }
 }
 scatter();
+
+// The force simulation stays in world coordinates; pan/zoom only transforms the viewport.
+const camera = { x:0, y:0, scale:1 };
+function updateCamera() {
+  viewportG.setAttribute('transform', 'translate(' + camera.x + ' ' + camera.y + ') scale(' + camera.scale + ')');
+}
+function screenPoint(e) {
+  const r = svg.getBoundingClientRect();
+  return { x:(e.clientX-r.left)*svgW()/(r.width||1), y:(e.clientY-r.top)*svgH()/(r.height||1) };
+}
+function screenToWorld(e) {
+  const p = screenPoint(e);
+  return { x:(p.x-camera.x)/camera.scale, y:(p.y-camera.y)/camera.scale };
+}
+let panning = null;
+svg.addEventListener('mousedown', e => {
+  if (e.button !== 0 || e.target.closest('.node')) return;
+  const p=screenPoint(e);
+  panning={px:p.x,py:p.y,x:camera.x,y:camera.y};
+  e.preventDefault();
+});
+window.addEventListener('mousemove', e => {
+  if (!panning) return;
+  const p=screenPoint(e);
+  camera.x=panning.x+p.x-panning.px;
+  camera.y=panning.y+p.y-panning.py;
+  updateCamera();
+});
+window.addEventListener('mouseup', () => { panning=null; });
+svg.addEventListener('wheel', e => {
+  e.preventDefault();
+  const p=screenPoint(e);
+  const next=Math.max(0.3, Math.min(3.0, camera.scale*Math.exp(-e.deltaY*0.0015)));
+  const wx=(p.x-camera.x)/camera.scale, wy=(p.y-camera.y)/camera.scale;
+  camera.x=p.x-wx*next; camera.y=p.y-wy*next; camera.scale=next;
+  updateCamera();
+}, {passive:false});
+svg.addEventListener('dblclick', e => {
+  e.preventDefault();
+  camera.x=0; camera.y=0; camera.scale=1;
+  updateCamera();
+});
+updateCamera();
 
 // --- Visibility ---
 function computeVisible() {
@@ -246,6 +331,7 @@ function computeVisible() {
     }
     n.visible = show;
   }
+  if (selectedId !== null && nodes[selectedId]) nodes[selectedId].visible = true;
 }
 
 // --- Simulation ---
@@ -361,19 +447,22 @@ function render() {
       el = nodeEls[n.id] = { g, circle, text };
 
       g.addEventListener('click', () => selectNode(n.id));
-      // drag
-      let dragging = false, ox = 0, oy = 0;
+      // Node drag uses inverse camera transform, so it cannot trigger background pan.
+      let dragging=false, ox=0, oy=0;
       g.addEventListener('mousedown', e => {
-        dragging = true; ox = e.clientX - n.x; oy = e.clientY - n.y;
-        e.preventDefault();
+        if (e.button !== 0) return;
+        const p=screenToWorld(e);
+        dragging=true; ox=p.x-n.x; oy=p.y-n.y;
+        e.stopPropagation(); e.preventDefault();
       });
       window.addEventListener('mousemove', e => {
         if (!dragging) return;
-        n.x = e.clientX - ox; n.y = e.clientY - oy;
-        n.vx = 0; n.vy = 0;
+        const p=screenToWorld(e);
+        n.x=p.x-ox; n.y=p.y-oy;
+        n.vx=0; n.vy=0;
         render();
       });
-      window.addEventListener('mouseup', () => { dragging = false; });
+      window.addEventListener('mouseup', () => { dragging=false; });
     }
     const { g, circle, text } = el;
     if (!vis.has(n.id)) { g.style.display = 'none'; continue; }
@@ -424,52 +513,67 @@ function updateStats(vis, isolated) {
 
 // --- Detail pane ---
 function selectNode(id) {
+  if (!nodes[id]) return;
   selectedId = id;
   const n = nodes[id];
+  n.visible = true;
   highlightSet = new Set([id, ...n.links, ...n.backlinks]);
-
   const detail = document.getElementById('detail');
   const color = typeColor(n.type);
-  const typeLabel = n.type || '未分類';
-
-  const daysStr = n.daysAgo === 0 ? '今日' : \`\${n.daysAgo}日前\`;
-  const obsUrl = 'obsidian://open?vault=ace-vault&file=' + encodeURIComponent(n.relPath.replace(/\\.md$/, ''));
-
-  const allLinks = [
-    ...n.links.map(id => ({ id, dir: '→' })),
-    ...n.backlinks.map(id => ({ id, dir: '←' }))
-  ];
-
+  const updated = new Date(n.mtimeMs).toLocaleString('ja-JP');
+  const obsUrl = 'obsidian://open?vault=ace-vault&file=' + encodeURIComponent(n.relPath.replace(/\.md$/, ''));
+  const allLinks = [...n.links.map(id => ({id,dir:'→'})), ...n.backlinks.map(id => ({id,dir:'←'}))];
   detail.innerHTML = \`
     <div>
       <h2>\${esc(n.title)}</h2>
       <div class="meta-row" style="margin-top:6px">
-        <span class="type-badge" style="background:\${color}">\${typeLabel}</span>
-        <span>📁 \${esc(n.dir)}</span>
-        <span>🕐 \${daysStr}</span>
+        <span class="type-badge" style="background:\${color}">\${esc(n.type || '未分類')}</span>
+        <span>🕐 更新 \${esc(updated)}</span>
         <span>📝 \${n.wordCount}文字</span>
       </div>
-      \${n.tags && n.tags.length ? \`<div class="meta-row" style="margin-top:4px">\${n.tags.map(t => \`<span style="color:#666">#\${esc(t)}</span>\`).join(' ')}</div>\` : ''}
+      <div class="note-path">📁 \${esc(n.relPath)}</div>
+      \${n.tags && n.tags.length ? \`<div class="meta-row" style="margin-top:4px">\${n.tags.map(t => \`<span>#\${esc(t)}</span>\`).join(' ')}</div>\` : ''}
     </div>
-    \${n.excerpt ? \`<div class="detail-section"><h3>抜粋</h3><div class="excerpt">\${esc(n.excerpt)}</div></div>\` : ''}
+    <div class="detail-section"><h3>本文プレビュー（最大5000文字）</h3><div class="note-preview">\${esc(n.preview || '(本文なし)')}</div></div>
+    \${n.images && n.images.length ? \`<div class="detail-section"><h3>画像（\${n.images.length}）</h3>\${n.images.map(img => img.url
+      ? \`<div><img class="note-image" loading="lazy" src="\${esc(img.url)}" alt="\${esc(img.source)}"></div>\`
+      : \`<div class="missing-image">画像が見つかりません: \${esc(img.source)}</div>\`).join('')}</div>\` : ''}
     <div class="detail-section">
-      <h3>リンク (\${allLinks.length})</h3>
-      \${allLinks.length === 0 ? '<span style="color:#555;font-size:11px">リンクなし（孤立ノード）</span>' :
-        allLinks.map(({ id, dir }) => \`<div class="link-item" data-link="\${id}"><span class="link-dir">\${dir}</span>\${esc(nodes[id].title)}</div>\`).join('')
-      }
+      <h3>関連リンク（\${allLinks.length}）</h3>
+      \${allLinks.length === 0 ? '<span style="color:#777">リンクなし</span>' :
+        allLinks.map(({id,dir}) => \`<button class="link-item" data-link="\${id}"><span class="link-dir">\${dir}</span>\${esc(nodes[id].title)}</button>\`).join('')}
     </div>
-    <button id="open-obsidian" onclick="window.open('\${obsUrl}')">Obsidianで開く ↗</button>
+    <button id="open-obsidian">Obsidianで開く ↗</button>
   \`;
-
-  detail.querySelectorAll('.link-item').forEach(el => {
-    el.addEventListener('click', () => selectNode(+el.dataset.link));
-  });
-
+  detail.querySelectorAll('[data-link]').forEach(el => el.addEventListener('click', () => selectNode(+el.dataset.link)));
+  detail.querySelector('#open-obsidian').addEventListener('click', () => window.open(obsUrl, '_self'));
+  document.querySelectorAll('.side-item[data-select]').forEach(el => el.classList.toggle('selected', +el.dataset.select === id));
   render();
 }
-
 function esc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function renderSidebar() {
+  const host = document.getElementById('sidebar-content');
+  const sorted = list => [...list].sort((a,b) => a.title.localeCompare(b.title,'ja'));
+  const item = n => \`<button class="side-item" data-select="\${n.id}" title="\${esc(n.relPath)}">\${esc(n.title)}</button>\`;
+  const section = (title, groups, open=false) =>
+    \`<h3>\${esc(title)}</h3>\` + groups.map(([label,list]) =>
+      \`<details \${open?'open':''}><summary>\${esc(label)}（\${list.length}）</summary>\${list.length?sorted(list).map(item).join(''):'<div class="side-note">ノートなし</div>'}</details>\`).join('');
+  const types=['mondai','genri','taiken','concept','output','product',null];
+  const typeGroups=types.map(t => [t || 'typeなし', nodes.filter(n => n.type === t)]);
+  const dirs=[...new Set(nodes.map(n => n.dir))].sort((a,b)=>a.localeCompare(b,'ja'));
+  const dirGroups=dirs.map(d => [d,nodes.filter(n => n.dir === d)]);
+  const weak=nodes.filter(n => n.links.length === 0 || n.backlinks.length === 0);
+  const recent=[...nodes].sort((a,b)=>b.mtimeMs-a.mtimeMs).slice(0,10);
+  host.innerHTML = section('Type別一覧',typeGroups) + section('ディレクトリ',dirGroups)
+    + section('孤立・片方向ノード',[['リンク不足',weak]])
+    + section('最近触ったノート',[['更新順 上位10件',recent]],true);
+  host.addEventListener('click', e => {
+    const btn=e.target.closest('[data-select]');
+    if (btn) selectNode(+btn.dataset.select);
+  });
 }
 
 // --- Filters ---
@@ -514,6 +618,7 @@ document.getElementById('search').addEventListener('input', e => {
 });
 
 // --- Init ---
+renderSidebar();
 computeVisible();
 startSim();
 </script>
