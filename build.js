@@ -109,9 +109,10 @@ for (let i = 0; i < files.length; i++) {
   const images = extractImages(body, filePath);
   const preview = body.slice(0, 5000);
 
-  const node = { id: i, title, relPath, dir, type, tags, linkTargets, links: [], backlinks: [], excerpt, preview, images, mtimeMs: mtime, daysAgo, isTriage, wordCount };
+  const node = { id: i, title, relPath, dir, type, tags, linkTargets, wikiLinks: linkTargets, links: [], backlinks: [], excerpt, preview, images, mtimeMs: mtime, daysAgo, isTriage, wordCount };
   nodes.push(node);
   titleToId.set(title.toLowerCase(), i);
+  titleToId.set(relPath.replace(/\.md$/i, '').replace(/\\/g, '/').toLowerCase(), i);
   // also register without extension variants
   titleToId.set(title, i);
 }
@@ -119,7 +120,9 @@ for (let i = 0; i < files.length; i++) {
 // Resolve links → ids and build backlinks
 for (const node of nodes) {
   for (const target of node.linkTargets) {
-    const tid = titleToId.get(target) ?? titleToId.get(target.toLowerCase());
+    const canonical = target.replace(/\.md$/i, '').replace(/\\/g, '/');
+    const base = canonical.split('/').pop();
+    const tid = titleToId.get(canonical) ?? titleToId.get(canonical.toLowerCase()) ?? titleToId.get(base) ?? titleToId.get(base.toLowerCase());
     if (tid !== undefined && tid !== node.id) {
       if (!node.links.includes(tid)) node.links.push(tid);
       if (!nodes[tid].backlinks.includes(node.id)) nodes[tid].backlinks.push(node.id);
@@ -538,6 +541,10 @@ function selectNode(id) {
     \${n.images && n.images.length ? \`<div class="detail-section"><h3>画像（\${n.images.length}）</h3>\${n.images.map(img => img.url
       ? \`<div><img class="note-image" loading="lazy" src="\${esc(img.url)}" alt="\${esc(img.source)}"></div>\`
       : \`<div class="missing-image">画像が見つかりません: \${esc(img.source)}</div>\`).join('')}</div>\` : ''}
+    <div class="detail-section">
+      <h3>Wiki-link一覧（\${(n.wikiLinks || []).length}）</h3>
+      \${(n.wikiLinks || []).length ? n.wikiLinks.map(t => \`<div class="note-path">[[\${esc(t)}]]</div>\`).join('') : '<span style="color:#777">記載なし</span>'}
+    </div>
     <div class="detail-section">
       <h3>関連リンク（\${allLinks.length}）</h3>
       \${allLinks.length === 0 ? '<span style="color:#777">リンクなし</span>' :
